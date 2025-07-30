@@ -39,13 +39,13 @@ class TextTranslatorNode:
             "required": {
                 "text": ("STRING", {
                     "multiline": True,
-                    "default": "Hello, world!"
+                    "default": "一個美麗的日出景色"
                 }),
                 "source_language": (["auto", "en", "zh", "ja", "ko", "fr", "de", "es", "it", "ru", "ar", "pt"], {
                     "default": "auto"
                 }),
                 "target_language": (["en", "zh", "ja", "ko", "fr", "de", "es", "it", "ru", "ar", "pt"], {
-                    "default": "zh"
+                    "default": "en"
                 }),
             }
         }
@@ -71,10 +71,23 @@ class TextTranslatorNode:
                 ("en", "zh"),  # 英文到中文
                 ("zh", "en"),  # 中文到英文
                 ("en", "ja"),  # 英文到日文
+                ("ja", "en"),  # 日文到英文
                 ("en", "ko"),  # 英文到韓文
+                ("ko", "en"),  # 韓文到英文
                 ("en", "fr"),  # 英文到法文
+                ("fr", "en"),  # 法文到英文
                 ("en", "de"),  # 英文到德文
+                ("de", "en"),  # 德文到英文
                 ("en", "es"),  # 英文到西班牙文
+                ("es", "en"),  # 西班牙文到英文
+                ("en", "it"),  # 英文到義大利文
+                ("it", "en"),  # 義大利文到英文
+                ("en", "ru"),  # 英文到俄文
+                ("ru", "en"),  # 俄文到英文
+                ("en", "pt"),  # 英文到葡萄牙文
+                ("pt", "en"),  # 葡萄牙文到英文
+                ("en", "ar"),  # 英文到阿拉伯文
+                ("ar", "en"),  # 阿拉伯文到英文
             ]
             
             # 檢查並安裝必要的語言包
