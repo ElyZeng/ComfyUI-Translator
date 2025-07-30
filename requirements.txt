@@ -1,4 +1,2 @@
-requests>=2.28.0
-torch>=1.13.0
-transformers>=4.21.0
-googletrans-py>=1.2.0
+argostranslate>=1.9.0
+argostranslatefiles>=1.0.1

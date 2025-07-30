@@ -1,21 +1,34 @@
 """
 Text Translator Node for ComfyUI
-Provides translation functionality using various translation services.
+Provides offline translation functionality using Argos Translate.
 """
 
-import torch
-import requests
-import json
+import argostranslate.package
+import argostranslate.translate
 from typing import Dict, Any, Tuple
+import os
 
 
 class TextTranslatorNode:
     """
-    A ComfyUI custom node for text translation
+    A ComfyUI custom node for offline text translation using Argos Translate
     """
     
     def __init__(self):
-        pass
+        self.language_mapping = {
+            "en": "English",
+            "zh": "Chinese",
+            "ja": "Japanese", 
+            "ko": "Korean",
+            "fr": "French",
+            "de": "German",
+            "es": "Spanish",
+            "it": "Italian",
+            "ru": "Russian",
+            "ar": "Arabic",
+            "pt": "Portuguese"
+        }
+        self._ensure_language_packages()
     
     @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
@@ -28,19 +41,11 @@ class TextTranslatorNode:
                     "multiline": True,
                     "default": "Hello, world!"
                 }),
-                "source_language": (["auto", "en", "zh", "ja", "ko", "fr", "de", "es", "it", "ru"], {
+                "source_language": (["auto", "en", "zh", "ja", "ko", "fr", "de", "es", "it", "ru", "ar", "pt"], {
                     "default": "auto"
                 }),
-                "target_language": (["zh", "en", "ja", "ko", "fr", "de", "es", "it", "ru"], {
+                "target_language": (["en", "zh", "ja", "ko", "fr", "de", "es", "it", "ru", "ar", "pt"], {
                     "default": "zh"
-                }),
-                "translation_service": (["google", "baidu", "deepl"], {
-                    "default": "google"
-                }),
-            },
-            "optional": {
-                "api_key": ("STRING", {
-                    "default": ""
                 }),
             }
         }
@@ -50,63 +55,101 @@ class TextTranslatorNode:
     FUNCTION = "translate_text"
     CATEGORY = "text/translation"
     
-    def translate_text(self, text: str, source_language: str, target_language: str, 
-                      translation_service: str, api_key: str = "") -> Tuple[str]:
+    def _ensure_language_packages(self):
         """
-        執行文字翻譯
+        確保必要的語言包已安裝
         """
         try:
-            if translation_service == "google":
-                translated = self._google_translate(text, source_language, target_language)
-            elif translation_service == "baidu":
-                translated = self._baidu_translate(text, source_language, target_language, api_key)
-            elif translation_service == "deepl":
-                translated = self._deepl_translate(text, source_language, target_language, api_key)
-            else:
-                translated = f"Error: Unsupported translation service: {translation_service}"
+            # 更新可用的語言包列表
+            argostranslate.package.update_package_index()
             
-            return (translated,)
-        
+            # 獲取已安裝的語言包
+            installed_packages = argostranslate.package.get_installed_packages()
+            
+            # 基本語言對（最常用的翻譯方向）
+            basic_language_pairs = [
+                ("en", "zh"),  # 英文到中文
+                ("zh", "en"),  # 中文到英文
+                ("en", "ja"),  # 英文到日文
+                ("en", "ko"),  # 英文到韓文
+                ("en", "fr"),  # 英文到法文
+                ("en", "de"),  # 英文到德文
+                ("en", "es"),  # 英文到西班牙文
+            ]
+            
+            # 檢查並安裝必要的語言包
+            available_packages = argostranslate.package.get_available_packages()
+            
+            for from_code, to_code in basic_language_pairs:
+                # 檢查是否已安裝此語言對
+                package_exists = any(
+                    pkg.from_code == from_code and pkg.to_code == to_code 
+                    for pkg in installed_packages
+                )
+                
+                if not package_exists:
+                    # 尋找並安裝語言包
+                    package_to_install = next(
+                        (pkg for pkg in available_packages 
+                         if pkg.from_code == from_code and pkg.to_code == to_code),
+                        None
+                    )
+                    
+                    if package_to_install:
+                        print(f"Installing language package: {from_code} -> {to_code}")
+                        argostranslate.package.install_from_path(package_to_install.download())
+                        
+        except Exception as e:
+            print(f"Warning: Could not install language packages: {e}")
+    
+    def _detect_language(self, text: str) -> str:
+        """
+        簡單的語言檢測（基於字符特徵）
+        """
+        # 簡單的語言檢測邏輯
+        if any('\u4e00' <= char <= '\u9fff' for char in text):
+            return "zh"  # 中文
+        elif any('\u3040' <= char <= '\u309f' or '\u30a0' <= char <= '\u30ff' for char in text):
+            return "ja"  # 日文
+        elif any('\uac00' <= char <= '\ud7af' for char in text):
+            return "ko"  # 韓文
+        else:
+            return "en"  # 默認英文
+    
+    def translate_text(self, text: str, source_language: str, target_language: str) -> Tuple[str]:
+        """
+        執行離線文字翻譯
+        """
+        try:
+            # 自動檢測源語言
+            if source_language == "auto":
+                source_language = self._detect_language(text)
+            
+            # 如果源語言和目標語言相同，直接返回原文
+            if source_language == target_language:
+                return (text,)
+            
+            # 執行翻譯
+            translated_text = argostranslate.translate.translate(text, source_language, target_language)
+            
+            if not translated_text:
+                # 如果直接翻譯失敗，嘗試通過英文中轉
+                if source_language != "en" and target_language != "en":
+                    # 先翻譯到英文
+                    english_text = argostranslate.translate.translate(text, source_language, "en")
+                    if english_text:
+                        # 再從英文翻譯到目標語言
+                        translated_text = argostranslate.translate.translate(english_text, "en", target_language)
+                
+                if not translated_text:
+                    return (f"Translation failed: No translation path available from {source_language} to {target_language}",)
+            
+            return (translated_text,)
+            
         except Exception as e:
             error_msg = f"Translation error: {str(e)}"
             print(error_msg)
             return (error_msg,)
-    
-    def _google_translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """
-        使用Google Translate API (免費版本，僅作示例)
-        注意：實際使用時建議使用官方API
-        """
-        try:
-            # 這裡是簡化版本，實際應用中應該使用官方Google Translate API
-            # 此處僅作為示例結構
-            return f"[Google翻譯] {text} -> {target_lang}"
-        except Exception as e:
-            return f"Google translation failed: {str(e)}"
-    
-    def _baidu_translate(self, text: str, source_lang: str, target_lang: str, api_key: str) -> str:
-        """
-        使用百度翻譯API
-        """
-        try:
-            if not api_key:
-                return "Error: Baidu API key is required"
-            # 實際的百度翻譯API調用邏輯
-            return f"[百度翻譯] {text} -> {target_lang}"
-        except Exception as e:
-            return f"Baidu translation failed: {str(e)}"
-    
-    def _deepl_translate(self, text: str, source_lang: str, target_lang: str, api_key: str) -> str:
-        """
-        使用DeepL API
-        """
-        try:
-            if not api_key:
-                return "Error: DeepL API key is required"
-            # 實際的DeepL API調用邏輯
-            return f"[DeepL翻譯] {text} -> {target_lang}"
-        except Exception as e:
-            return f"DeepL translation failed: {str(e)}"
 
 
 # 節點映射 - ComfyUI需要這些來註冊節點
