@@ -1,0 +1,7 @@
+{
+  "name": "ComfyUI-Translator",
+  "author": "Ely Zeng",
+  "description": "A ComfyUI node to translate text between multiple languages using Argos Translate.",
+  "version": "1.0.0",
+  "link": "https://github.com/yourname/ComfyUI-Translator"
+}
