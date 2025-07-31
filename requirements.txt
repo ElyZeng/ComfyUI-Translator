@@ -1,2 +1,1 @@
 argostranslate>=1.9.0
-argostranslatefiles>=1.0.1
